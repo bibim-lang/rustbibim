@@ -18,13 +18,18 @@
 %%
 
 BowlP -> Result<Bowl, ()>:
-    'MEM' { Ok(Bowl::MemBowl) }
-    | 'BOWL_OPEN' 'BOWL_CLOSE' { Ok(Bowl::DefaultBowl(DefaultBowl {
+    'MEM' { Ok(Bowl {
+        is_mem: true,
         noodles: Vec::new(),
-    })) }
-    | 'BOWL_OPEN' BowlContents 'BOWL_CLOSE' { Ok(Bowl::DefaultBowl(DefaultBowl {
+    }) }
+    | 'BOWL_OPEN' 'BOWL_CLOSE' { Ok(Bowl {
+        is_mem: false,
+        noodles: Vec::new(),
+    }) }
+    | 'BOWL_OPEN' BowlContents 'BOWL_CLOSE' { Ok(Bowl {
+        is_mem: false,
         noodles: $2?,
-    })) }
+    }) }
     ;
 
 Number -> Result<BigUint, ()>:
@@ -78,7 +83,7 @@ ExprP -> Result<Expr, ()>:
 %%
 
 use num_bigint::BigUint;
-use crate::datatype::{Bowl, BowlAccess, Expr, Noodle, DefaultBowl, Value, Number};
+use crate::datatype::{Bowl, BowlAccess, Expr, Noodle, Value, Number};
 
 fn parse_bigint(s: &str) -> Result<BigUint, ()> {
     match BigUint::parse_bytes(s.as_bytes(), 10) {
