@@ -5,7 +5,6 @@ use std::{
 };
 
 use bibim::{
-    datatype::Bowl,
     run, env::Env,
 };
 
@@ -16,17 +15,14 @@ fn main() {
     if let Some(file_path) = env::args().nth(1) {
         let mut env = Env {
             cursor: None,
-            mem: Bowl {
-                is_mem: true,
-                noodles: vec![],
-            },
+            mem: vec![],
             is_debug: false,
-            on_read: Box::new(|| {
+            on_read_io: Box::new(|| {
                 let mut buffer = Vec::new();
                 input.lock().unwrap().read_to_end(&mut buffer).unwrap();
                 buffer
             }),
-            on_write: Box::new(|data| {
+            on_write_io: Box::new(|data| {
                 output.lock().unwrap().write(data.as_slice()).unwrap();
                 output.lock().unwrap().flush().ok();
             }),
@@ -42,17 +38,14 @@ fn main() {
             io::stdout().flush().ok();
             let mut env = Env {
                 cursor: None,
-                mem: Bowl {
-                    is_mem: true,
-                    noodles: vec![],
-                },
+                mem: vec![],
                 is_debug: false,
-                on_read: Box::new(|| {
+                on_read_io: Box::new(|| {
                     let mut buffer = Vec::new();
                     input.lock().unwrap().read_to_end(&mut buffer).unwrap();
                     buffer
                 }),
-                on_write: Box::new(|data| {
+                on_write_io: Box::new(|data| {
                     output.lock().unwrap().write(data.as_slice()).unwrap();
                     output.lock().unwrap().flush().ok();
                 }),

@@ -1,6 +1,7 @@
 pub mod datatype;
 pub mod env;
 pub mod error;
+pub mod eval;
 
 use env::Env;
 use lrlex::lrlex_mod;
@@ -14,11 +15,16 @@ pub fn run(code: String, env: &mut Env) -> Result<(), Box<dyn std_error::Error>>
     let lexerdef = bibim_l::lexerdef();
     let lexer = lexerdef.lexer(code.as_str());
     let (res, errs) = bibim_y::parse(&lexer);
+    let mut is_failed = false;
     for e in errs {
-        panic!("{}", e.to_string());
+        println!("{}", e.pp(&lexer, &bibim_y::token_epp));
+        is_failed = true;
+    }
+    if is_failed {
+        panic!("Parse failed");
     }
     if let Some(Ok(bowl)) = res {
-        return match env.eval(bowl) {
+        return match eval::eval(env, bowl) {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
         };
@@ -29,8 +35,6 @@ pub fn run(code: String, env: &mut Env) -> Result<(), Box<dyn std_error::Error>>
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
-
-    use crate::datatype::{Bowl};
 
     use super::*;
 
@@ -46,13 +50,10 @@ mod tests {
         let output = Arc::new(Mutex::new(Vec::new()));
         let mut env = Env {
             cursor: None,
-            mem: Bowl {
-                is_mem: true,
-                noodles: vec![],
-            },
+            mem: vec![],
             is_debug: true,
-            on_read: Box::new(|| input.to_vec()),
-            on_write: Box::new(|data| output.lock().unwrap().extend(data)),
+            on_read_io: Box::new(|| input.to_vec()),
+            on_write_io: Box::new(|data| output.lock().unwrap().extend(data)),
         };
 
         // run code
@@ -60,6 +61,44 @@ mod tests {
 
         // test output
         assert_eq!(*output.lock().unwrap(), "".as_bytes());
+    }
+
+    #[test]
+    fn hello_world_1() {
+        // code to test
+        let code = r"{
+            [0; @:1 = {
+                [0; 72]
+                [1; 69]
+                [2; 76]
+                [3; 76]
+                [4; 79]
+                [5; 32]
+                [6; 87]
+                [7; 79]
+                [8; 82]
+                [9; 76]
+                [10; 68]
+                [11; 10]
+            }]
+        }";
+
+        // setup env
+        let input = "".as_bytes();
+        let output = Arc::new(Mutex::new(Vec::new()));
+        let mut env = Env {
+            cursor: None,
+            mem: vec![],
+            is_debug: true,
+            on_read_io: Box::new(|| input.to_vec()),
+            on_write_io: Box::new(|data| output.lock().unwrap().extend(data)),
+        };
+
+        // run code
+        run(code.to_string(), &mut env).unwrap();
+
+        // test output
+        assert_eq!(*output.lock().unwrap(), "HELLO WORLD\n".as_bytes());
     }
 
     #[test]
@@ -74,13 +113,13 @@ mod tests {
                 [4; 79]
             }]
             [1; @:1 = {
-                [1; 32]
-                [2; 87]
-                [3; 79]
-                [4; 82]
-                [5; 76]
-                [6; 68]
-                [7; 10]
+                [0; 32]
+                [1; 87]
+                [2; 79]
+                [3; 82]
+                [4; 76]
+                [5; 68]
+                [6; 10]
             }]
         }";
 
@@ -89,13 +128,10 @@ mod tests {
         let output = Arc::new(Mutex::new(Vec::new()));
         let mut env = Env {
             cursor: None,
-            mem: Bowl {
-                is_mem: true,
-                noodles: vec![],
-            },
+            mem: vec![],
             is_debug: true,
-            on_read: Box::new(|| input.to_vec()),
-            on_write: Box::new(|data| output.lock().unwrap().extend(data)),
+            on_read_io: Box::new(|| input.to_vec()),
+            on_write_io: Box::new(|data| output.lock().unwrap().extend(data)),
         };
 
         // run code
@@ -132,13 +168,10 @@ mod tests {
         let output = Arc::new(Mutex::new(Vec::new()));
         let mut env = Env {
             cursor: None,
-            mem: Bowl {
-                is_mem: true,
-                noodles: vec![],
-            },
+            mem: vec![],
             is_debug: true,
-            on_read: Box::new(|| input.to_vec()),
-            on_write: Box::new(|data| output.lock().unwrap().extend(data)),
+            on_read_io: Box::new(|| input.to_vec()),
+            on_write_io: Box::new(|data| output.lock().unwrap().extend(data)),
         };
 
         // run code
@@ -156,24 +189,235 @@ mod tests {
         }";
 
         // setup env
-        let input = "test".as_bytes();
+        let input = "test\n".as_bytes();
         let output = Arc::new(Mutex::new(Vec::new()));
         let mut env = Env {
             cursor: None,
-            mem: Bowl {
-                is_mem: true,
-                noodles: vec![],
-            },
+            mem: vec![],
             is_debug: true,
-            on_read: Box::new(|| input.to_vec()),
-            on_write: Box::new(|data| output.lock().unwrap().extend(data)),
+            on_read_io: Box::new(|| input.to_vec()),
+            on_write_io: Box::new(|data| output.lock().unwrap().extend(data)),
         };
 
         // run code
         run(code.to_string(), &mut env).unwrap();
 
         // test output
-        assert_eq!(*output.lock().unwrap(), "test".as_bytes());
+        assert_eq!(*output.lock().unwrap(), "test\n".as_bytes());
+    }
+
+    #[test]
+    fn print_int() {
+        // code to test
+        let code = r"{
+            [0; @:2/7 = 112873] ~# 함수 @:1/3을 호출하기 위해 출력할 정수 대입 #~
+            [1; @:3/7 = 2] ~# 함수 @:1/3을 호출 후 이동할 위치 2 대입 #~
+            [2; @:1/3 = @:0 + 1] ~# 함수 @:1/3을 호출 #~
+            [@:2; @:1 = @:6/7] ~# 함수 @:1/3의 결과로 얻은 변환된 정수 문자열 출력 #~
+        
+            ~# 함수: @:1/2 = 정수의 길이를 반환 #~
+            ~# 입력: @:2/5 = 확인할 정수, @:3/5 = 함수 종료 후 이동할 위치 #~
+            ~# 출력: @:4/5 = 확인한 정수의 길이 #~
+            [@:1/2; @:1/5 = @:0 + 3]
+            [@:1/5 - 2; @:4/5 = 0] ~# 출력 결과에 0을 대입 #~
+            [@:1/5 - 1; @:(0 - 1)/5 = @:2/5] ~# @:(0 - 1)/5 = 확인할 변수를 담은 임시 변수 #~
+            [@:1/5 + 0; @:4/5 = @:4/5 + 1] ~# 출력 결과를 1 증가 #~
+            [@:1/5 + 2; @:(0 - 1)/5 = (@:(0 - 1)/5) / 10] ~# @:(0 - 1)/5 를 10으로 나누어 다시 저장 #~
+            [@:1/5 + 3; { ~# @:(0 - 1)/5 가 1보다 크거나 같으면 @:1/5로 되돌아감 #~
+                [1; @:1/5 = @:0 + 1]
+            }:!(@:(0 - 1)/5 < 1)]
+            [@:1/5 + 4; @:(@:3/5) = @:0 + 1] ~# 함수 탈출 #~
+        
+            ~# 함수: @:1/3 = 정수를 자릿수별로 나눠서 ascii로 변환한 Bowl으로 반환 #~
+            ~# 입력: @:2/7 = 변환할 정수, @:3/7 = 함수 종료 후 이동할 위치 #~
+            ~# 출력: @:6/7 = 변환된 Bowl #~
+            [@:1/3; @:1/7 = @:0 + 1]
+            [@:1/7 + 0; @:6/7 = {}] ~# 변환 결과를 저장할 Bowl 초기화 #~
+            [@:1/7 + 1; @:(0 - 1)/7 = @:2/7] ~# 변환할 정수 임시 변수 @:(0 - 1)/7 에 복사 #~
+            [@:1/7 + 2; @:2/5 = @:2/7] ~# 함수 @:1/2를 호출하기 위해 확인할 정수 대입 #~
+            [@:1/7 + 3; @:3/5 = 1/13] ~# 함수 @:1/2를 호출 후 이동할 위치 1/13 지정 #~
+            [@:1/7 + 4; @:1/2 = @:0 + 1] ~# 함수 @:1/2를 호출 #~
+            [@:1/13 + 0; @:(0 - 2)/7 = @:4/5] ~# 함수 @:1/2 호출 결과(정수의 길이)를 임시 변수 @:(0 - 2)/7 에 저장 #~
+            [@:1/13 + 1; @:(0 - 3)/7 = 0] ~# 자리수 확인용 변수 @:(0 - 3)/7 초기화 #~
+            [@:1/13 + 2; { ~# 정수의 길이가 0이면 함수 종료 #~
+                [0; @:1/17 = @:0 + 1] ~# 정수의 길이가 0이 아니므로 계속 실행 #~
+                [1; @:(@:3/7) = @:0 + 1] ~# 정수의 길이가 0이므로 함수 종료 #~
+            }:(@:(0 - 2)/7 ?= 0)]
+            [@:1/17 + 0; @:(0 - 4)/7 = (@:(0 - 1)/7 - @:(0 - 3)/7)/10] ~# @:(0 - 4)/7 = (임시변수 1 - 임시변수 3) / 10 #~
+            [@:1/17 + 1; { ~# @:(0 - 4)/7 의 분모가 1인 경우 @:(0 - 3)/7이 현재 마지막 자리의 자릿값임#~
+                [0; @:1/19 = @:0 + 1] ~# @:(0 - 3)/7 를 1 증가시켜서 다시 확인하는 코드로 이동 #~
+                [1; @:1/23 = @:0 + 1] ~# @:(0 - 3)/7 를 반환할 Bowl에 추가하는 코드로 이동 #~
+            }:(^(@:(0 - 4)/7) ?= 1)]
+            [@:1/19 + 0; @:(0 - 3)/7 = @:(0 - 3)/7 + 1] ~# @:(0 - 3)/7 를 1 증가시킴 #~
+            [@:1/19 + 1; @:1/13 = @:0 - 1] ~# @:1/13 + 2 로 이동 #~
+            [@:1/23 + 0; @:(0 - 2)/7 = @:(0 - 2)/7 - 1] ~# @:(0 - 2)/7 (정수의 길이)를 1 감소시킴 #~
+            [@:1/23 + 1; (@:6/7):(@:(0 - 2)/7) = @:(0 - 3)/7 + 48] ~# 반환할 Bowl의 (정수의 길이)번째에 현재 자리값을 대입 #~
+            [@:1/23 + 2; @:(0 - 1)/7 = @:(0 - 4)/7] ~# @:(0 - 1)/7 의 마지막 자리수를 제거하여 대입 #~
+            [@:1/23 + 3; @:1/13 = @:0 - 0] ~# @:1/13 + 1 로 이동 (자리값 초기화 수행하는 자리로) #~
+        }";
+
+        // setup env
+        let input = "".as_bytes();
+        let output = Arc::new(Mutex::new(Vec::new()));
+        let mut env = Env {
+            cursor: None,
+            mem: vec![],
+            is_debug: true,
+            on_read_io: Box::new(|| input.to_vec()),
+            on_write_io: Box::new(|data| output.lock().unwrap().extend(data)),
+        };
+
+        // run code
+        run(code.to_string(), &mut env).unwrap();
+
+        // test output
+        assert_eq!(*output.lock().unwrap(), "112873".as_bytes());
+    }
+
+    #[test]
+    fn print_square() {
+        // code to test
+        let code = r"{
+            [1/2; @:2/11 = @:1] ~# STDIN으로 수 입력받음 #~
+            [2/3; @:3/11 = 2] ~# 함수 @:1/3을 호출 후 이동할 위치 2 대입 #~
+            [3/4; @:1/11 = @:0 + 1] ~# 함수 @:1/11 호출 #~
+            [@:2 + 0; @:2/7 = @:10/11 * @:10/11] ~# 함수 @:1/11 호출 결과를 제곱하여 @:2/7에 대입 #~
+            [@:2 + 1; @:3/7 = 3] ~# 함수 @:1/3을 호출 후 이동할 위치 3 대입 #~
+            [@:2 + 2; @:1/3 = @:0 + 1] ~# 함수 @:1/3을 호출 #~
+            [@:3 + 0; @:1 = @:6/7] ~# 함수 @:1/3의 결과로 얻은 변환된 정수 문자열 출력 #~
+            [@:3 + 1; @:1 = {
+                [0; 10]
+            }]
+        
+            ~# 함수: @:1/2 = 정수의 길이를 반환 #~
+            ~# 입력: @:2/5 = 확인할 정수, @:3/5 = 함수 종료 후 이동할 위치 #~
+            ~# 출력: @:4/5 = 확인한 정수의 길이 #~
+            [@:1/2; @:1/5 = @:0 + 3]
+            [@:1/5 - 2; @:4/5 = 0] ~# 출력 결과에 0을 대입 #~
+            [@:1/5 - 1; @:(0 - 1)/5 = @:2/5] ~# @:(0 - 1)/5 = 확인할 변수를 담은 임시 변수 #~
+            [@:1/5 + 0; @:4/5 = @:4/5 + 1] ~# 출력 결과를 1 증가 #~
+            [@:1/5 + 2; @:(0 - 1)/5 = (@:(0 - 1)/5) / 10] ~# @:(0 - 1)/5 를 10으로 나누어 다시 저장 #~
+            [@:1/5 + 3; { ~# @:(0 - 1)/5 가 1보다 크거나 같으면 @:1/5로 되돌아감 #~
+                [1; @:1/5 = @:0 + 1]
+            }:!(@:(0 - 1)/5 < 1)]
+            [@:1/5 + 4; @:(@:3/5) = @:0 + 1] ~# 함수 탈출 #~
+        
+            ~# 함수: @:1/3 = 정수를 자릿수별로 나눠서 ascii로 변환한 Bowl으로 반환 #~
+            ~# 입력: @:2/7 = 변환할 정수, @:3/7 = 함수 종료 후 이동할 위치 #~
+            ~# 출력: @:6/7 = 변환된 Bowl #~
+            [@:1/3; @:1/7 = @:0 + 1]
+            [@:1/7 + 0; @:6/7 = {}] ~# 변환 결과를 저장할 Bowl 초기화 #~
+            [@:1/7 + 1; @:(0 - 1)/7 = @:2/7] ~# 변환할 정수 임시 변수 @:(0 - 1)/7 에 복사 #~
+            [@:1/7 + 2; @:2/5 = @:2/7] ~# 함수 @:1/2를 호출하기 위해 확인할 정수 대입 #~
+            [@:1/7 + 3; @:3/5 = 1/13] ~# 함수 @:1/2를 호출 후 이동할 위치 1/13 지정 #~
+            [@:1/7 + 4; @:1/2 = @:0 + 1] ~# 함수 @:1/2를 호출 #~
+            [@:1/13 + 0; @:(0 - 2)/7 = @:4/5] ~# 함수 @:1/2 호출 결과(정수의 길이)를 임시 변수 @:(0 - 2)/7 에 저장 #~
+            [@:1/13 + 1; @:(0 - 3)/7 = 0] ~# 자리수 확인용 변수 @:(0 - 3)/7 초기화 #~
+            [@:1/13 + 2; { ~# 정수의 길이가 0이면 함수 종료 #~
+                [0; @:1/17 = @:0 + 1] ~# 정수의 길이가 0이 아니므로 계속 실행 #~
+                [1; @:(@:3/7) = @:0 + 1] ~# 정수의 길이가 0이므로 함수 종료 #~
+            }:(@:(0 - 2)/7 ?= 0)]
+            [@:1/17 + 0; @:(0 - 4)/7 = (@:(0 - 1)/7 - @:(0 - 3)/7)/10] ~# @:(0 - 4)/7 = (임시변수 1 - 임시변수 3) / 10 #~
+            [@:1/17 + 1; { ~# @:(0 - 4)/7 의 분모가 1인 경우 @:(0 - 3)/7이 현재 마지막 자리의 자릿값임#~
+                [0; @:1/19 = @:0 + 1] ~# @:(0 - 3)/7 를 1 증가시켜서 다시 확인하는 코드로 이동 #~
+                [1; @:1/23 = @:0 + 1] ~# @:(0 - 3)/7 를 반환할 Bowl에 추가하는 코드로 이동 #~
+            }:(^(@:(0 - 4)/7) ?= 1)]
+            [@:1/19 + 0; @:(0 - 3)/7 = @:(0 - 3)/7 + 1] ~# @:(0 - 3)/7 를 1 증가시킴 #~
+            [@:1/19 + 1; @:1/13 = @:0 - 1] ~# @:1/13 + 2 로 이동 #~
+            [@:1/23 + 0; @:(0 - 2)/7 = @:(0 - 2)/7 - 1] ~# @:(0 - 2)/7 (정수의 길이)를 1 감소시킴 #~
+            [@:1/23 + 1; (@:6/7):(@:(0 - 2)/7) = @:(0 - 3)/7 + 48] ~# 반환할 Bowl의 (정수의 길이)번째에 현재 자리값을 대입 #~
+            [@:1/23 + 2; @:(0 - 1)/7 = @:(0 - 4)/7] ~# @:(0 - 1)/7 의 마지막 자리수를 제거하여 대입 #~
+            [@:1/23 + 3; @:1/13 = @:0 - 0] ~# @:1/13 + 1 로 이동 (자리값 초기화 수행하는 자리로) #~
+        
+            ~# 함수: @:1/11 = 문자열을 정수로 변환 #~
+            ~# 입력: @:2/11 = 변환할 문자열, @:3/11 = 함수 종료 후 이동할 위치 #~
+            ~# 출력: @:10/11 = 반환할 정수 #~
+            [@:1/11; @:1/29 = @:0 + 1]
+            [@:1/29 + 0; @:10/11 = 0] ~# 반환할 값에 0 대입 #~
+            [@:1/29 + 1; @:(0 - 1)/11 = 0] ~# @:(0 - 1)/11 = 문자열 인덱스를 담는 임시 변수 #~
+            [@:1/29 + 2; @:(0 - 2)/11 = @:2/11] ~# @:(0 - 2)/11 = 복사한 문자열을 담은 임시 변수 #~
+            [@:1/29 + 3; @:(0 - 3)/11 = (@:(0 - 2)/11):(@:(0 - 1)/11)] ~# @:(0 - 3)/11 = 현재 인덱스 위치의 값 #~
+            [@:1/29 + 4; @:(0 - 4)/11 = @:0 + 3] ~# @:(0 - 3)/11가 NULL 일 경우 CATCH할 위치 #~
+            [@:1/29 + 5; {
+                [0; @:(@:1/37) = @:0 + 1] ~# 숫자가 아니므로 함수 종료 #~
+                [1; @:1/31 = @:0 + 1] ~# 정수 처리 코드로 이동 #~
+            }:(((@:(0 - 3)/11) > 47) & ((@:(0 - 3)/11) < 58))] ~# 복사한 문자열 인덱스 확인 #~
+            [@:(0 - 4)/11; @:(@:3/11) = @:0 + 1] ~# @:(0 - 3)/11가 NULL 이므로 함수 종료 #~
+            [@:1/31 + 0; @:(0 - 4)/11 = 0] ~# @:(0 - 3)/11 NULL CATCH 위치 등록 취소 #~
+            [@:1/31 + 1; @:10/11 = @:10/11 * 10 + (@:(0 - 3)/11 - 48)] ~# 반환할 값 10배 + 현재 인덱스 값 대입 #~
+            [@:1/31 + 2; @:(0 - 1)/11 = @:(0 - 1)/11 + 1] ~# 문자열 인덱스 1 증가 #~
+            [@:1/31 + 3; @:1/29 = @:0 - 2] ~# @:1/29 + 3 로 이동 #~
+            [@:1/37 + 0; @:(0 - 4)/11 = 0] ~# @:(0 - 3)/11 NULL CATCH 위치 등록 취소 #~
+            [@:1/37 + 1; @:(@:3/11) = @:0 + 1] ~# 함수 종료 #~
+        }";
+
+        // setup env
+        let input = "4\n".as_bytes();
+        let output = Arc::new(Mutex::new(Vec::new()));
+        let mut env = Env {
+            cursor: None,
+            mem: vec![],
+            is_debug: true,
+            on_read_io: Box::new(|| input.to_vec()),
+            on_write_io: Box::new(|data| output.lock().unwrap().extend(data)),
+        };
+
+        // run code
+        run(code.to_string(), &mut env).unwrap();
+
+        // test output
+        assert_eq!(*output.lock().unwrap(), "16".as_bytes());
+    }
+
+    #[test]
+    fn fizzbuzz() {
+        // code to test
+        let code = r"{
+            [1/2; @:1/3 = {
+                [0; 102]
+                [1; 105]
+                [2; 122]
+                [3; 122]
+            }]
+            [2/3; @:2/3 = {
+                [0; 98]
+                [1; 117]
+                [2; 122]
+                [3; 122]
+            }]
+            [3/4; @:2 = 1]
+            [4/5; @:1/2 = 1]
+            [@:2; {
+                [1; @:1 = @:1/3]
+            }:(^((@:1/2)/3) ?= 1)]
+            [@:2 + 1; {
+                [1; @:1 = @:2/3]
+            }:(^((@:1/2)/5) ?= 1)]
+            [@:2 + 2; @:1/2 = @:1/2 + 1]
+            [@:2 + 3; @:1 = {
+                [0; 10]
+            }]
+            [@:2 + 4; {
+                [1; @:2 = @:0 + 1]
+            }:(@:1/2 < 100 + 1)]
+        }";
+
+        // setup env
+        let input = "".as_bytes();
+        let output = Arc::new(Mutex::new(Vec::new()));
+        let mut env = Env {
+            cursor: None,
+            mem: vec![],
+            is_debug: true,
+            on_read_io: Box::new(|| input.to_vec()),
+            on_write_io: Box::new(|data| output.lock().unwrap().extend(data)),
+        };
+
+        // run code
+        run(code.to_string(), &mut env).unwrap();
+
+        // test output
+        assert_eq!(*output.lock().unwrap(), "\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n".as_bytes());
     }
 
     #[test]
@@ -250,20 +494,17 @@ mod tests {
         let output = Arc::new(Mutex::new(Vec::new()));
         let mut env = Env {
             cursor: None,
-            mem: Bowl {
-                is_mem: true,
-                noodles: vec![],
-            },
+            mem: vec![],
             is_debug: true,
-            on_read: Box::new(|| input.to_vec()),
-            on_write: Box::new(|data| output.lock().unwrap().extend(data)),
+            on_read_io: Box::new(|| input.to_vec()),
+            on_write_io: Box::new(|data| output.lock().unwrap().extend(data)),
         };
 
         // run code
         run(code.to_string(), &mut env).unwrap();
 
         // test output
-        assert_eq!(*output.lock().unwrap(), "233168".as_bytes());
+        assert_eq!(*output.lock().unwrap(), "233168\n".as_bytes());
     }
 
     #[test]
@@ -344,20 +585,17 @@ mod tests {
         let output = Arc::new(Mutex::new(Vec::new()));
         let mut env = Env {
             cursor: None,
-            mem: Bowl {
-                is_mem: true,
-                noodles: vec![],
-            },
+            mem: vec![],
             is_debug: true,
-            on_read: Box::new(|| input.to_vec()),
-            on_write: Box::new(|data| output.lock().unwrap().extend(data)),
+            on_read_io: Box::new(|| input.to_vec()),
+            on_write_io: Box::new(|data| output.lock().unwrap().extend(data)),
         };
 
         // run code
         run(code.to_string(), &mut env).unwrap();
 
         // test output
-        assert_eq!(*output.lock().unwrap(), "4613732".as_bytes());
+        assert_eq!(*output.lock().unwrap(), "4613732\n".as_bytes());
     }
 
     #[test]
@@ -438,73 +676,16 @@ mod tests {
         let output = Arc::new(Mutex::new(Vec::new()));
         let mut env = Env {
             cursor: None,
-            mem: Bowl {
-                is_mem: true,
-                noodles: vec![],
-            },
+            mem: vec![],
             is_debug: true,
-            on_read: Box::new(|| input.to_vec()),
-            on_write: Box::new(|data| output.lock().unwrap().extend(data)),
+            on_read_io: Box::new(|| input.to_vec()),
+            on_write_io: Box::new(|data| output.lock().unwrap().extend(data)),
         };
 
         // run code
         run(code.to_string(), &mut env).unwrap();
 
         // test output
-        assert_eq!(*output.lock().unwrap(), "6857".as_bytes());
-    }
-
-    #[test]
-    fn fizzbuzz() {
-        // code to test
-        let code = r"{
-            [1/2; @:1/3 = {
-                [0; 102]
-                [1; 105]
-                [2; 122]
-                [3; 122]
-            }]
-            [2/3; @:2/3 = {
-                [0; 98]
-                [1; 117]
-                [2; 122]
-                [3; 122]
-            }]
-            [3/4; @:2 = 1]
-            [4/5; @:1/2 = 1]
-            [@:2; {
-                [1; @:1 = @:1/3]
-            }:(^((@:1/2)/3) ?= 1)]
-            [@:2 + 1; {
-                [1; @:1 = @:2/3]
-            }:(^((@:1/2)/5) ?= 1)]
-            [@:2 + 2; @:1/2 = @:1/2 + 1]
-            [@:2 + 3; @:1 = {
-                [0; 10]
-            }]
-            [@:2 + 4; {
-                [1; @:2 = @:0 + 1]
-            }:(@:1/2 < 100 + 1)]
-        }";
-
-        // setup env
-        let input = "".as_bytes();
-        let output = Arc::new(Mutex::new(Vec::new()));
-        let mut env = Env {
-            cursor: None,
-            mem: Bowl {
-                is_mem: true,
-                noodles: vec![],
-            },
-            is_debug: true,
-            on_read: Box::new(|| input.to_vec()),
-            on_write: Box::new(|data| output.lock().unwrap().extend(data)),
-        };
-
-        // run code
-        run(code.to_string(), &mut env).unwrap();
-
-        // test output
-        assert_eq!(*output.lock().unwrap(), "\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz\n\nfizz\n\n\nfizzbuzz\n\n\nfizz\n\nbuzz\nfizz\n\n\nfizz\nbuzz".as_bytes());
+        assert_eq!(*output.lock().unwrap(), "6857\n".as_bytes());
     }
 }
