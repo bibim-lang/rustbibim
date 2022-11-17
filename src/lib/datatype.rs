@@ -1,6 +1,6 @@
 use std::{cell::RefCell, fmt, rc::Rc};
 
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
 
 #[derive(Debug, Clone)]
 pub struct Bowl {
@@ -30,18 +30,6 @@ impl fmt::Display for Noodle {
 }
 
 #[derive(Debug, Clone)]
-pub struct BowlAccess {
-    pub bowl_expr: Expr,
-    pub access_expr: Expr,
-}
-
-impl fmt::Display for BowlAccess {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}):({})", self.bowl_expr, self.access_expr)
-    }
-}
-
-#[derive(Debug, Clone)]
 pub enum Expr {
     ValueExpr(Value),
     BowlReadExpr(Box<Expr>, Box<Expr>),
@@ -61,29 +49,92 @@ pub enum Expr {
     LtFuncExpr(Box<Expr>, Box<Expr>),
 }
 
+fn strip_parens(expr: &Expr) -> String {
+    let mut string = format!("{}", expr);
+    while string.starts_with("(") && string.ends_with(")") {
+        let mut paren_count = 1;
+        let mut should_strip = false;
+        for (i, c) in string[1..].chars().enumerate() {
+            if c == '(' {
+                paren_count += 1;
+            } else if c == ')' {
+                paren_count -= 1;
+            }
+            if paren_count == 0 {
+                if i == string.len() - 2 {
+                    should_strip = true;
+                }
+                break;
+            }
+        }
+        if should_strip {
+            string = string[1..string.len() - 1].to_string();
+        } else {
+            break;
+        }
+    }
+    string
+}
+
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expr::ValueExpr(value) => write!(f, "({})", value),
-            Expr::BowlReadExpr(bowl_expr, nn_expr) => write!(f, "(({}):({}))", bowl_expr, nn_expr),
-            Expr::MemReadExpr(nn_expr) => write!(f, "(@:({}))", nn_expr),
+            Expr::ValueExpr(value) => {
+                write!(f, "{}", value)
+            }
+            Expr::BowlReadExpr(bowl_expr, nn_expr) => write!(
+                f,
+                "(({}):({}))",
+                strip_parens(bowl_expr),
+                strip_parens(nn_expr)
+            ),
+            Expr::MemReadExpr(nn_expr) => write!(f, "(@:({}))", strip_parens(nn_expr)),
             Expr::BowlWriteExpr(bowl_expr, nn_expr, value_expr) => {
-                write!(f, "(({}):({}) = ({}))", bowl_expr, nn_expr, value_expr)
+                write!(
+                    f,
+                    "(({}):({}) = ({}))",
+                    strip_parens(bowl_expr),
+                    strip_parens(nn_expr),
+                    strip_parens(value_expr)
+                )
             }
             Expr::MemWriteExpr(nn_expr, value_expr) => {
-                write!(f, "(@:({}) = ({}))", nn_expr, value_expr)
+                write!(
+                    f,
+                    "(@:({}) = ({}))",
+                    strip_parens(nn_expr),
+                    strip_parens(value_expr)
+                )
             }
-            Expr::DenoFuncExpr(expr) => write!(f, "^({})", expr),
-            Expr::PlusFuncExpr(expr1, expr2) => write!(f, "({})+({})", expr1, expr2),
-            Expr::MinusFuncExpr(expr1, expr2) => write!(f, "({})-({})", expr1, expr2),
-            Expr::MulFuncExpr(expr1, expr2) => write!(f, "({})*({})", expr1, expr2),
-            Expr::NumberSepFuncExpr(expr1, expr2) => write!(f, "({})/({})", expr1, expr2),
-            Expr::AndFuncExpr(expr1, expr2) => write!(f, "({})&({})", expr1, expr2),
-            Expr::OrFuncExpr(expr1, expr2) => write!(f, "({})|({})", expr1, expr2),
+            Expr::DenoFuncExpr(expr) => write!(f, "^({})", strip_parens(expr)),
+            Expr::PlusFuncExpr(expr1, expr2) => {
+                write!(f, "({})+({})", strip_parens(expr1), strip_parens(expr2))
+            }
+            Expr::MinusFuncExpr(expr1, expr2) => {
+                write!(f, "({})-({})", strip_parens(expr1), strip_parens(expr2))
+            }
+            Expr::MulFuncExpr(expr1, expr2) => {
+                write!(f, "({})*({})", strip_parens(expr1), strip_parens(expr2))
+            }
+            Expr::NumberSepFuncExpr(expr1, expr2) => {
+                write!(f, "({})/({})", strip_parens(expr1), strip_parens(expr2))
+            }
+            Expr::AndFuncExpr(expr1, expr2) => {
+                write!(f, "({})&({})", strip_parens(expr1), strip_parens(expr2))
+            }
+            Expr::OrFuncExpr(expr1, expr2) => {
+                write!(f, "({})|({})", strip_parens(expr1), strip_parens(expr2))
+            }
             Expr::NotFuncExpr(expr) => write!(f, "!({})", expr),
-            Expr::EqFuncExpr(expr1, expr2) => write!(f, "({})?=({})", expr1, expr2),
-            Expr::GtFuncExpr(expr1, expr2) => write!(f, "({})>({})", expr1, expr2),
-            Expr::LtFuncExpr(expr1, expr2) => write!(f, "({})<({})", expr1, expr2),
+            Expr::EqFuncExpr(expr1, expr2) => {
+                write!(f, "({})?=({})", strip_parens(expr1), strip_parens(expr2))
+            }
+            Expr::GtFuncExpr(expr1, expr2) => {
+                write!(f, "({})>({})", strip_parens(expr1), strip_parens(expr2))
+            }
+            Expr::LtFuncExpr(expr1, expr2) => {
+                write!(f, "({})<({})", strip_parens(expr1), strip_parens(expr2))
+            }
         }
     }
 }
@@ -100,7 +151,7 @@ impl Value {
         Value::Number(Box::new(number.clone()))
     }
 
-    pub fn from_big_uint(numerator: &BigInt, denominator: &BigInt) -> Value {
+    pub fn from_big_int(numerator: &BigInt, denominator: &BigUint) -> Value {
         Value::from_number(&Number::new(numerator.clone(), denominator.clone()))
     }
 
@@ -130,42 +181,50 @@ impl fmt::Display for Value {
 #[derive(Debug, Clone)]
 pub struct Number {
     pub numerator: BigInt,
-    pub denominator: BigInt,
+    pub denominator: BigUint,
 }
 
-fn gcd(a: BigInt, b: BigInt) -> BigInt {
+fn gcd(a: BigUint, b: BigUint) -> BigUint {
     let mut a = a;
     let mut b = b;
-    while b != BigInt::from(0u32) {
+    while b != BigUint::from(0u32) {
         (a, b) = (b.clone(), a % b);
     }
     a
 }
 
+fn big_abs(a: BigInt) -> BigUint {
+    if a.sign() == Sign::Plus {
+        a.to_biguint().unwrap()
+    } else {
+        (-a).to_biguint().unwrap()
+    }
+}
+
 impl Number {
-    pub fn new(numerator: BigInt, denominator: BigInt) -> Number {
-        if denominator == BigInt::from(0u32) {
+    pub fn new(numerator: BigInt, denominator: BigUint) -> Number {
+        if denominator == BigUint::from(0u32) {
             panic!("denominator is zero");
         }
-        if denominator == BigInt::from(1u32) {
+        if denominator == BigUint::from(1u32) {
             return Number {
                 numerator,
                 denominator,
             };
         }
-        let g = gcd(numerator.clone(), denominator.clone());
+        let g = gcd(big_abs(numerator.clone()), denominator.clone());
         Number {
-            numerator: numerator / g.clone(),
+            numerator: numerator / g.to_bigint().unwrap(),
             denominator: denominator / g,
         }
     }
 
     pub fn one() -> Number {
-        Number::new(BigInt::from(1u32), BigInt::from(1u32))
+        Number::new(BigInt::from(1u32), BigUint::from(1u32))
     }
 
     pub fn zero() -> Number {
-        Number::new(BigInt::from(0u32), BigInt::from(1u32))
+        Number::new(BigInt::from(0u32), BigUint::from(1u32))
     }
 
     pub fn neg(&self) -> Number {
@@ -176,8 +235,8 @@ impl Number {
     }
 
     pub fn add(&self, other: &Number) -> Number {
-        let numerator = self.numerator.clone() * other.denominator.clone()
-            + other.numerator.clone() * self.denominator.clone();
+        let numerator = self.numerator.clone() * other.denominator.to_bigint().unwrap()
+            + other.numerator.clone() * self.denominator.to_bigint().unwrap();
         let denominator = self.denominator.clone() * other.denominator.clone();
         Number::new(numerator, denominator)
     }
@@ -194,10 +253,12 @@ impl Number {
     }
 
     pub fn div(&self, other: &Number) -> Number {
-        Number::new(
-            self.numerator.clone() * other.denominator.clone(),
-            self.denominator.clone() * other.numerator.clone(),
-        )
+        let mut numerator = self.numerator.clone() * other.denominator.to_bigint().unwrap();
+        let denomerator = self.denominator.to_bigint().unwrap() * other.numerator.clone();
+        if denomerator.sign() == Sign::Minus {
+            numerator = -numerator;
+        }
+        Number::new(numerator, denomerator.to_biguint().unwrap())
     }
 
     pub fn bool(&self) -> bool {
@@ -213,13 +274,13 @@ impl Number {
     }
 
     pub fn lt(&self, other: &Number) -> bool {
-        self.numerator.clone() * other.denominator.clone()
-            < other.numerator.clone() * self.denominator.clone()
+        self.numerator.clone() * other.denominator.to_bigint().unwrap()
+            < other.numerator.clone() * self.denominator.to_bigint().unwrap()
     }
 
     pub fn gt(&self, other: &Number) -> bool {
-        self.numerator.clone() * other.denominator.clone()
-            > other.numerator.clone() * self.denominator.clone()
+        self.numerator.clone() * other.denominator.to_bigint().unwrap()
+            > other.numerator.clone() * self.denominator.to_bigint().unwrap()
     }
 
     pub fn eq(&self, other: &Number) -> bool {
@@ -238,6 +299,10 @@ impl Number {
 
 impl fmt::Display for Number {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}/{}", self.numerator, self.denominator)
+        if self.denominator == BigUint::from(1u32) {
+            write!(f, "{}", self.numerator)
+        } else {
+            write!(f, "{}/{}", self.numerator, self.denominator)
+        }
     }
 }

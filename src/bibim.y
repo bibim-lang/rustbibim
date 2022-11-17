@@ -52,7 +52,7 @@ BowlContents -> Result<Vec<Noodle>, ()>:
     ;
 
 ExprP -> Result<Expr, ()>:
-    Number { Ok(Expr::ValueExpr(Value::from_number(&Number::new($1?, BigInt::from(1u32))))) }
+    Number { Ok(Expr::ValueExpr(Value::from_number(&Number::new($1?, BigUint::from(1u32))))) }
     | BowlP { Ok(Expr::ValueExpr(Value::from_bowl($1?))) }
     | ExprP 'BOWL' ExprP { Ok(Expr::BowlReadExpr(Box::new($1?), Box::new($3?))) }
     | 'MEM' 'BOWL' ExprP { Ok(Expr::MemReadExpr(Box::new($3?))) }
@@ -73,7 +73,7 @@ ExprP -> Result<Expr, ()>:
     ;
 %%
 
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 use crate::datatype::{Bowl, Expr, Noodle, Value, Number};
 
 fn parse_bigint(s: &str) -> Result<BigInt, ()> {

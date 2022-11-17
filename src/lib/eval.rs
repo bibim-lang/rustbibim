@@ -1,6 +1,6 @@
 use std::error;
 
-use num_bigint::BigInt;
+use num_bigint::{BigUint, ToBigInt};
 
 use crate::{
     datatype::{Bowl, Expr, Noodle, Number, Value},
@@ -21,11 +21,10 @@ pub fn eval(env: &mut Env, bowl: Bowl) -> Result<bool, Box<dyn error::Error>> {
         } else {
             panic!("Cannot set cursor to non-number value");
         }
-        let result = eval_expr(env, &noodle.expr);
+        eval_expr(env, &noodle.expr);
         if env.is_debug {
-            println!("[.] cursor: {:?}", env.cursor);
-            println!("[.] noodle eval value: {}", result);
-            println!("[.] mem state: {:?}", env.mem);
+            println!("[.] cursor: {}", env.cursor.as_ref().unwrap());
+            println!("[.] mem state: {}", env.mem_to_bowl());
         }
     }
     Ok(true)
@@ -73,7 +72,10 @@ pub fn eval_expr(env: &mut Env, expr: &Expr) -> Value {
         Expr::DenoFuncExpr(expr) => {
             let value = eval_expr(env, expr);
             if let Value::Number(number) = value {
-                Value::from_big_uint(&number.denominator, &BigInt::from(1u32))
+                Value::from_big_int(
+                    &number.denominator.to_bigint().unwrap(),
+                    &BigUint::from(1u32),
+                )
             } else {
                 Value::Null
             }

@@ -1,4 +1,4 @@
-use num_bigint::{BigInt, Sign};
+use num_bigint::{BigInt, BigUint, Sign};
 
 use crate::{
     datatype::{Bowl, Expr, Noodle, Number, Value},
@@ -21,9 +21,9 @@ impl Env<'_> {
         for byte in data {
             noodles.push(Noodle {
                 nn_expr: Expr::ValueExpr(Value::from_number(&index)),
-                expr: Expr::ValueExpr(Value::from_big_uint(
+                expr: Expr::ValueExpr(Value::from_big_int(
                     &BigInt::from(byte),
-                    &BigInt::from(1u32),
+                    &BigUint::from(1u32),
                 )),
             });
             index = index.add(&Number::one());
@@ -38,7 +38,7 @@ impl Env<'_> {
         loop {
             let value = bowl.read(self, &Value::from_number(&nn_index));
             if let Value::Number(number) = value {
-                if number.denominator != BigInt::from(1u32) {
+                if number.denominator != BigUint::from(1u32) {
                     panic!("Cannot write non-integer value");
                 }
                 let num_vec = number.numerator.to_bytes_be();
@@ -137,5 +137,16 @@ impl Env<'_> {
             }
         }
         min_nextable_noodle.cloned()
+    }
+
+    pub fn mem_to_bowl(&self) -> Bowl {
+        let mut noodles = vec![];
+        for noodle_like in &self.mem {
+            noodles.push(Noodle {
+                nn_expr: Expr::ValueExpr(Value::from_number(&noodle_like.0)),
+                expr: Expr::ValueExpr(noodle_like.1.clone()),
+            });
+        }
+        Bowl { noodles }
     }
 }
