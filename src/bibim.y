@@ -6,9 +6,9 @@
 %left NOT
 %left EQ GT LT
 %left PLUS MINUS
+%left MUL
 %left BOWL
 %left ASSIGN
-%left MUL
 %left DENO
 %left NUMBER_SEP
 %left NOODLE_SEP

@@ -366,7 +366,7 @@ mod tests {
         run(code.to_string(), &mut env).unwrap();
 
         // test output
-        assert_eq!(*output.lock().unwrap(), "16".as_bytes());
+        assert_eq!(*output.lock().unwrap(), "16\n".as_bytes());
     }
 
     #[test]
