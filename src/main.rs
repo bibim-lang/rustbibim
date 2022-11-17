@@ -7,10 +7,9 @@ use std::{
 use bibim::{env::Env, run};
 
 fn main() {
-    let stdin = io::stdin();
-    let input = Arc::new(Mutex::new(io::stdin()));
-    let output = Arc::new(Mutex::new(io::stdout()));
     if let Some(file_path) = env::args().nth(1) {
+        let input = Arc::new(Mutex::new(io::stdin()));
+        let output = Arc::new(Mutex::new(io::stdout()));
         let mut env = Env {
             cursor: None,
             mem: vec![],
@@ -34,6 +33,9 @@ fn main() {
         loop {
             print!(">>> ");
             io::stdout().flush().ok();
+            let input = Arc::new(Mutex::new(io::stdin()));
+            let output = Arc::new(Mutex::new(io::stdout()));
+            let code = input.lock().unwrap().lock().lines().next();
             let mut env = Env {
                 cursor: None,
                 mem: vec![],
@@ -48,7 +50,7 @@ fn main() {
                     output.lock().unwrap().flush().ok();
                 }),
             };
-            match stdin.lock().lines().next() {
+            match code {
                 Some(Ok(ref l)) => match run(l.to_string(), &mut env) {
                     Ok(_) => {}
                     Err(e) => println!("Error: {}", e),
