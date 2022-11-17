@@ -1,6 +1,5 @@
 use std::{error, fmt};
 
-
 #[derive(Debug, Clone)]
 pub struct RootMemBowlError;
 impl error::Error for RootMemBowlError {}

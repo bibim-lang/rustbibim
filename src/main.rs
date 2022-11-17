@@ -4,14 +4,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use bibim::{
-    run, env::Env,
-};
+use bibim::{env::Env, run};
 
 fn main() {
     let stdin = io::stdin();
-    let input = Arc::new(Mutex::new(std::io::stdin()));
-    let output = Arc::new(Mutex::new(std::io::stdout()));
+    let input = Arc::new(Mutex::new(io::stdin()));
+    let output = Arc::new(Mutex::new(io::stdout()));
     if let Some(file_path) = env::args().nth(1) {
         let mut env = Env {
             cursor: None,
