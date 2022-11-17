@@ -39,14 +39,17 @@ impl Env<'_> {
             let value = bowl.read(self, &Value::from_number(&nn_index));
             if let Value::Number(number) = value {
                 if number.denominator != BigUint::from(1u32) {
-                    panic!("Cannot write non-integer value");
+                    // panic!("Cannot write non-integer value");
+                    break;
                 }
                 let num_vec = number.numerator.to_bytes_be();
                 if num_vec.0 == Sign::Minus {
-                    panic!("Cannot write negative value");
+                    // panic!("Cannot write negative value");
+                    break;
                 }
                 if num_vec.1.len() > 1 {
-                    panic!("Cannot write too large value");
+                    // panic!("Cannot write too large value");
+                    break;
                 }
                 data.push(num_vec.1[0]);
                 nn_index = nn_index.add(&Number::one());
@@ -84,7 +87,8 @@ impl Env<'_> {
                 if let Value::Bowl(bowl) = value {
                     return self.write_io(&bowl.borrow());
                 } else {
-                    panic!("Cannot write non-bowl value");
+                    // panic!("Cannot write non-bowl value");
+                    return;
                 }
             }
             let mut is_written = false;

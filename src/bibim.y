@@ -53,7 +53,7 @@ BowlContents -> Result<Vec<Noodle>, ()>:
     ;
 
 ExprP -> Result<Expr, ()>:
-    Number { Ok(Expr::ValueExpr(Value::from_number(&Number::new($1?, BigUint::from(1u32))))) }
+    Number { Ok(Expr::ValueExpr(Value::from_number(&Number::new($1?, BigUint::from(1u32)).unwrap()))) }
     | BowlP { Ok(Expr::ValueExpr(Value::from_bowl($1?))) }
     | ExprP 'BOWL' ExprP { Ok(Expr::BowlReadExpr(Box::new($1?), Box::new($3?))) }
     | 'MEM' 'BOWL' ExprP { Ok(Expr::MemReadExpr(Box::new($3?))) }

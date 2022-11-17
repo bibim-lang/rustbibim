@@ -2,6 +2,8 @@ use std::{cell::RefCell, fmt, rc::Rc};
 
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
 
+use crate::error;
+
 #[derive(Debug, Clone)]
 pub struct Bowl {
     pub noodles: Vec<Noodle>,
@@ -152,7 +154,10 @@ impl Value {
     }
 
     pub fn from_big_int(numerator: &BigInt, denominator: &BigUint) -> Value {
-        Value::from_number(&Number::new(numerator.clone(), denominator.clone()))
+        match Number::new(numerator.clone(), denominator.clone()) {
+            Ok(number) => Value::from_number(&number),
+            Err(_) => Value::Null,
+        }
     }
 
     pub fn from_bowl(bowl: Bowl) -> Value {
@@ -202,29 +207,32 @@ fn big_abs(a: BigInt) -> BigUint {
 }
 
 impl Number {
-    pub fn new(numerator: BigInt, denominator: BigUint) -> Number {
+    pub fn new(
+        numerator: BigInt,
+        denominator: BigUint,
+    ) -> Result<Number, error::ZeroDenominatorError> {
         if denominator == BigUint::from(0u32) {
-            panic!("denominator is zero");
+            return Err(error::ZeroDenominatorError);
         }
         if denominator == BigUint::from(1u32) {
-            return Number {
+            return Ok(Number {
                 numerator,
                 denominator,
-            };
+            });
         }
         let g = gcd(big_abs(numerator.clone()), denominator.clone());
-        Number {
+        Ok(Number {
             numerator: numerator / g.to_bigint().unwrap(),
             denominator: denominator / g,
-        }
+        })
     }
 
     pub fn one() -> Number {
-        Number::new(BigInt::from(1u32), BigUint::from(1u32))
+        Number::new(BigInt::from(1u32), BigUint::from(1u32)).unwrap()
     }
 
     pub fn zero() -> Number {
-        Number::new(BigInt::from(0u32), BigUint::from(1u32))
+        Number::new(BigInt::from(0u32), BigUint::from(1u32)).unwrap()
     }
 
     pub fn neg(&self) -> Number {
@@ -232,13 +240,14 @@ impl Number {
             BigInt::from(0u32) - self.numerator.clone(),
             self.denominator.clone(),
         )
+        .unwrap()
     }
 
     pub fn add(&self, other: &Number) -> Number {
         let numerator = self.numerator.clone() * other.denominator.to_bigint().unwrap()
             + other.numerator.clone() * self.denominator.to_bigint().unwrap();
         let denominator = self.denominator.clone() * other.denominator.clone();
-        Number::new(numerator, denominator)
+        Number::new(numerator, denominator).unwrap()
     }
 
     pub fn sub(&self, other: &Number) -> Number {
@@ -250,6 +259,7 @@ impl Number {
             self.numerator.clone() * other.numerator.clone(),
             self.denominator.clone() * other.denominator.clone(),
         )
+        .unwrap()
     }
 
     pub fn div(&self, other: &Number) -> Number {
@@ -258,7 +268,7 @@ impl Number {
         if denomerator.sign() == Sign::Minus {
             numerator = -numerator;
         }
-        Number::new(numerator, denomerator.to_biguint().unwrap())
+        Number::new(numerator, denomerator.to_biguint().unwrap()).unwrap()
     }
 
     pub fn bool(&self) -> bool {

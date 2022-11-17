@@ -21,15 +21,12 @@ pub fn run(code: String, env: &mut Env) -> Result<(), Box<dyn std_error::Error>>
         is_failed = true;
     }
     if is_failed {
-        panic!("Parse failed");
+        return Err(Box::new(error::ParseError));
     }
-    if let Some(Ok(bowl)) = res {
-        return match eval::eval(env, bowl) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        };
+    match eval::eval(env, res.unwrap().unwrap()) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
     }
-    panic!("No result");
 }
 
 #[cfg(test)]
