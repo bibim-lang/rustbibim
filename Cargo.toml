@@ -12,12 +12,12 @@ name = "bibim"
 path = "src/lib/mod.rs"
 
 [build-dependencies]
-cfgrammar = "0.12"
-lrlex = "0.12"
-lrpar = "0.12"
+cfgrammar = { git = "https://github.com/softdevteam/grmtools.git", rev = "438b71f" }
+lrlex = { git = "https://github.com/softdevteam/grmtools.git", rev = "438b71f" }
+lrpar = { git = "https://github.com/softdevteam/grmtools.git", rev = "438b71f" }
 
 [dependencies]
-cfgrammar = "0.12"
-lrlex = "0.12"
-lrpar = "0.12"
+cfgrammar = { git = "https://github.com/softdevteam/grmtools.git", rev = "438b71f" }
+lrlex = { git = "https://github.com/softdevteam/grmtools.git", rev = "438b71f" }
+lrpar = { git = "https://github.com/softdevteam/grmtools.git", rev = "438b71f" }
 num-bigint = "0.4.3"

@@ -59,8 +59,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "cfgrammar"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf74ea341ae8905eac9a234b6a5a845e118c25bbbdecf85ec77431a8b3bfa0be"
+source = "git+https://github.com/softdevteam/grmtools.git?rev=438b71f#438b71f24d9a803f791865ffb82aac644c8cba2d"
 dependencies = [
  "indexmap",
  "lazy_static",
@@ -166,14 +165,16 @@ checksum = "fc7fcc620a3bff7cdd7a365be3376c97191aeaccc2a603e600951e452615bf89"
 [[package]]
 name = "lrlex"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22b832738fbfa58ad036580929e973b3b6bd31c6d6c7f18f6b5ea7b626675c85"
+source = "git+https://github.com/softdevteam/grmtools.git?rev=438b71f#438b71f24d9a803f791865ffb82aac644c8cba2d"
 dependencies = [
+ "cfgrammar",
  "getopts",
  "lazy_static",
  "lrpar",
  "num-traits",
+ "quote",
  "regex",
+ "regex-syntax",
  "serde",
  "try_from",
  "vergen",
@@ -182,8 +183,7 @@ dependencies = [
 [[package]]
 name = "lrpar"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f270b952b07995fe874b10a5ed7dd28c80aa2130e37a7de7ed667d034e0a521"
+source = "git+https://github.com/softdevteam/grmtools.git?rev=438b71f#438b71f24d9a803f791865ffb82aac644c8cba2d"
 dependencies = [
  "bincode",
  "cactus",
@@ -204,15 +204,13 @@ dependencies = [
 [[package]]
 name = "lrtable"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a854115c6a10772ac154261592b082436abc869c812575cadcf9d7ceda8eff0b"
+source = "git+https://github.com/softdevteam/grmtools.git?rev=438b71f#438b71f24d9a803f791865ffb82aac644c8cba2d"
 dependencies = [
  "cfgrammar",
  "fnv",
  "num-traits",
  "serde",
  "sparsevec",
- "static_assertions",
  "vob",
 ]
 
@@ -414,9 +412,9 @@ dependencies = [
 
 [[package]]
 name = "sparsevec"
-version = "0.1.4"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "928d1ef5df00aec8c5643c2ac37db4dd282763013c0fcc81efbb8e13db8dd8ec"
+checksum = "35df5d2e580b29f3f7ec5b4ed49b0ab3acf7f3624122b3e823cafb9630f293b8"
 dependencies = [
  "num-traits",
  "packedvec",

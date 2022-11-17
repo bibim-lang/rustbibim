@@ -1,3 +1,4 @@
+%expect-unused "ASSIGN_OP"
 %start BowlP
 %avoid_insert "NUMBER"
 %token ASSIGN_OP
